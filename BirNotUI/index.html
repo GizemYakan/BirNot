@@ -101,6 +101,10 @@
                     success: function (data) {
                         var rememberMe = $("#inputRememberMe").prop("checked");
                         var storage = rememberMe ? localStorage : sessionStorage;
+                        girisVerileriniTemizle();
+                        storage["login"] = JSON.stringify(data);
+                        toastr.success("Merhaba " + data.userName + ", başarıyla giriş yaptın.");
+                        frm.reset();
                     },
                     error: function (xhr, status, error) {
                         showErrors(xhr.responseJSON);
@@ -108,6 +112,14 @@
                 });
             }
         });
+
+        //local tarayıcı kapansada saklar session tarayıcı kapanana kadar saklar
+
+        function girisVerileriniTemizle() {
+            localStorage.removeItem("login");
+            sessionStorage.removeItem("login");
+        }
+
         function showErrors(data) {
             if (data.ModelState) {
                 var ms = data.ModelState;
