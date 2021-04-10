@@ -8,9 +8,11 @@
     <link href="Content/bootstrap.min.css" rel="stylesheet" />
     <link href="Content/toastr.min.css" rel="stylesheet" />
     <link href="Content/site.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" integrity="sha512-iBBXm8fW90+nuLcSKlbmrPcLa0OT92xO1BIsZ+ywDWZCvqsWgccV3gFoRBv0z+8dLJgyAHIhR35VZc2oM/gI1w==" crossorigin="anonymous" />
+
 </head>
 <body>
-    <div id="uyelikSayfa"  style="display:none">
+    <div id="uyelikSayfa" style="display:none">
         <form class="form-signin giris" id="frmGirisKayit">
             <img class="mb-2" src="images/logo.png" alt="" width="120" height="120">
             <div class="mb-3">
@@ -39,7 +41,6 @@
         </form>
     </div>
     <div id="notlarSayfa" style="display:none">
-
         <nav class="navbar navbar-expand-lg navbar-light bg-light">
             <a class="navbar-brand" href="#">BirNot</a>
             <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
@@ -64,8 +65,35 @@
                 </ul>
             </div>
         </nav>
-
+        <div class="container body-content">
+            <div class="row notes-page">
+                <div class="col-md-3">
+                    <div class="notes-heading-bar">
+                        <h2 class="notes-heading">Notes</h2>
+                        <button id="btnNew" class="btn btn-success">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div id="notes" class="list-group"></div>
+                </div>
+                <div class="col-md-9">
+                    <form id="frmNote" method="post" style="display:none;">
+                        <input type="hidden" id="id" name="id" />
+                        <div class="form-group">
+                            <input type="text" id="baslik" name="Baslik" class="form-control" placeholder="Başlık" required maxlength="100" />
+                        </div>
+                        <div class="form-group">
+                            <textarea id="icerik" name="Icerik" rows="10" class="form-control" placeholder="Senin Notun"></textarea>
+                        </div>
+                        <button type="submit" id="btnSave" class="btn btn-primary"><i class="far fa-save"></i> Save</button>
+                        <button type="button" id="btnDelete" class="btn btn-danger"><i class="far fa-trash-alt"></i> Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
+
+
 
     <script src="Scripts/jquery-3.6.0.min.js"></script>
     <script src="Scripts/bootstrap.bundle.min.js"></script>
@@ -150,9 +178,16 @@
             event.preventDefault();
             cikisYap();
         });
+        $("#btnNew").click(function (event) {
+            event.preventDefault();
+            newNote();
+        });
+        $("body").on("click", "#notes > a", function (event) {
+            event.preventDefault();
+            sec(this);
+        });
 
         //local tarayıcı kapansada saklar session tarayıcı kapanana kadar saklar
-
         function girisVerileriniTemizle() {
             localStorage.removeItem("login");
             sessionStorage.removeItem("login");
@@ -175,24 +210,133 @@
             }
         }
 
+
+        function ilkiSec() {
+            var a = $("#notes > a")[0];
+            sec(a);
+        }
+
+        function sec(a) {
+            if (!a) {
+                $("#frmNote").hide();
+                selectedLink = null;
+                return;
+            }
+            $("#frmNote").show();
+            selectedLink = a;
+            $("#notes > a").removeClass("active");
+            $(a).addClass("active");
+            $("#id").val(a.not.Id);
+            $("#baslik").val(a.not.Baslik);
+            $("#icerik").val(a.not.Icerik);
+        }
+
         function sayfaSec() {
             if (login) {
                 $("#cikisKullaniciAdi").text(login.userName);
                 $("#notlarSayfa").show();
                 $("#uyelikSayfa").hide();
                 //TODO: notları listele
+                notlariListele();
             }
             else {
                 $("#notlarSayfa").hide();
                 $("#uyelikSayfa").show();
             }
         }
+
         function cikisYap() {
             login = null;
             girisVerileriniTemizle();
             sayfaSec();
             toastr.success("Başarıyla çıkış yapıldı.");
         }
+
+        function notlariListele() {
+            var headers = {};
+            headers.Authorization = login.token_type + " " + login.access_token;
+            $.ajax({
+                type: "GET",
+                url: apiUrl + "api/Notlar",
+                headers: headers,
+                success: function (data) {
+                    $("#notes").html(" ");
+                    for (const d of data) {
+                        notEkle(d);
+                    }
+                    ilkiSec();
+                },
+                error: function (data) {
+                    toastr.error("Hata!")
+                }
+            });
+        }
+
+        function newNote() {
+            var headers = {};
+            headers.Authorization = login.token_type + " " + login.access_token;
+            $.ajax({
+                type: "post",
+                url: apiUrl + "api/Notlar",
+                data: { Baslik: "Yeni Not", Icerik: "" },
+                headers: headers,
+                success: function (data) {
+                    notEkle(data);
+                    ilkiSec();
+                },
+                error: function (data) {
+                    toastr.error("Hata!")
+                }
+            });
+        }
+
+        function notEkle(not) {
+            var a = $("<a/>").attr("href", "#").text(not.Baslik).addClass("list-group-item");
+            a[0].not = not;
+            a.prependTo("#notes");
+        }
+
+        $("#frmNote").submit(function (event) {
+            event.preventDefault();
+            if (!selectedLink) return;
+            var headers = {};
+            headers.Authorization = login.token_type + " " + login.access_token;
+            var formData = $(this).serialize();
+            var id = selectedLink.not.Id;
+            $.ajax({
+                type: "put",
+                url: apiUrl + "api/Notlar/" + id,
+                data: formData,
+                headers: headers,
+                success: function (data) {
+                    notlariListele();
+                },
+                error: function (data) {
+                    toastr.error("Hata!")
+                }
+            });
+        });
+
+        $("#btnDelete").click(function () {
+            var selectedIndex = $(selectedLink).index();
+            var id = selectedLink.not.Id;
+            var headers = {};
+            headers.Authorization = login.token_type + " " + login.access_token;
+            $.ajax({
+                type: "delete",
+                url: apiUrl + "api/Notlar/" + id,
+                headers: headers,
+                success: function (data) {
+                    $(selectedLink).remove();
+                    selectedLink = null;
+                    sec($("#notes > a")[selectedIndex] || $("#notes > a").last()[0]);
+                },
+                error: function (data) {
+                    toastr.error("Hata!")
+                }
+            });
+        });
+
         sayfaSec();
     </script>
 </body>
